@@ -15,37 +15,22 @@ df.info()
 df.describe()
 
 # time series line chart for multiple catagorical variables over time against quantative variable (comparison chart)
-#change time to x and observation to y in function
-def line_chart(data,time,observation,categories):
-    #convert time to datetime64 if data is string
-    # data[time] = data[time].apply(pd.to_datetime)
-    # data.set_index(time, inplace = True)
+
+def line_chart(data, time, observation, categories):
+        graph = sns.FacetGrid(df, col=categories, col_wrap=3,
+                          hue = categories, sharey = False)
     
-    #create line plot of data
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data, x = time, y=observation, hue=categories, marker= 'o')
-    
-    # Perform linear regression and plot the line of best fit for each category
-    category = data[categories].unique()
-    for x in category:
-        subset = data[data[categories] == x]
-        X = sm.add_constant(subset[time].index)  # Using index as predictor
-        model = sm.OLS(subset[observation], X).fit()
-        plt.plot(subset[time], model.predict(X), color = 'black', linestyle = '--')
-        
-    
-    plt.xlabel(time)
-    plt.xticks(data[time], rotation=45)
-    plt.ylabel(observation)
-    plt.legend(title='Country')
-    plt.title('Scatter Plot of {} vs. {}'.format(time, observation))
+        graph = (graph.map(sns.lineplot,time,observation)
+             .add_legend()
+             .set_axis_labels(time,observation)
+             .set_titles(col_template="{col_name}"))
+        for ax in graph.axes.flat:
+            country = ax.get_title().split('=')[-1].strip()
+            title = "{} for {}".format(observation, country)
+            ax.set_title(title)
 
     
-    plt.plot()
-    plt.tight_layout()
-    plt.show()
-    plt.clf()
-    
+        
 
 #Has life expectancy increased over time in the six nations? (answer is yes)
 line_chart(df,"Year","Life expectancy at birth (years)", "Country")
@@ -55,27 +40,73 @@ print(df.Year.max(), df.Year.min())
 print(df["Life expectancy at birth (years)"].max(), df["Life expectancy at birth (years)"].min())
 print(df.Country.unique())
 
-#Has GDP increased over time in the six nations? (answer is for mexico,chile and zimbabwe no.. for the other three yes)
+#Has GDP increased over time in the six nations? (answer is yes)
 line_chart(df,"Year","GDP", "Country")
 
 
-#Scatter chart showing correlation between a quantative and categorical variable (relationship chart)
-def scatter_chart(data,x,y,category):
-    
-    log_y = data[y][data[y]>0]
-    log_y = np.log(log_y)
-    
-    # scatter plot with a visual cue
-    sns.scatterplot(x=x, y=log_y, hue = category, data=data)
-    plt.title('Scatter Plot of GDP vs. Life Expectancy')
-    plt.xlabel('GDP')
-    plt.ylabel('Life Expectancy')
 
-    plt.legend(title='Country')
+#Scatter chart showing correlation between a quantative and categorical variable (relationship chart) for multiple charts
+def scatter_chart(data,x,y,categories):
+    graph = sns.FacetGrid(df, col = categories, col_wrap = 3, hue = categories, sharey = False, sharex= False)
+    graph = (graph.map(sns.scatterplot,x,y)
+             .add_legend()
+             .set_axis_labels(x,y)
+             .set_titles(col_template="{col_name}"))
+    for ax in graph.axes.flat:
+        country = ax.get_title().split('=')[-1].strip()
+        title = "{} for {}".format(x, country)
+        ax.set_title(title)
+
+
+
+scatter_chart(df,"Life expectancy at birth (years)",'GDP','Country')
+
+avg_life_expectancy = df.groupby ('Country')["Life expectancy at birth (years)"].mean().reset_index()
+avg_life_expectancy.rename(columns={"Life expectancy at birth (years)": 'AverageLifeExpectancy'}, inplace=True)
+df = df.merge(avg_life_expectancy, on='Country')
+avg_gdp = df.groupby ('Country')['GDP'].mean().reset_index()
+avg_gdp.rename(columns={"GDP": 'AverageGDP'}, inplace=True)
+df = df.merge(avg_gdp, on='Country')
+
+#Plots 1 categorical variable on y axis against two different x axis as a bar chart
+def bar_chart(data,x,y,x2):
+    
+    fig, axes = plt.subplots(1,2, sharey= True, figsize = (12,6))
+    # Plot the first subplot (Left)
+    sns.barplot(ax=axes[0], y=y, x=x, data=data)
+    axes[0].set_title("Average Life Expectancy by Country")
+    axes[0].set_xlabel("Average Life Expectancy")
+    
+    # Plot the second subplot (Right)
+    sns.barplot(ax=axes[1], y=y, x=x2, data=data)
+    axes[1].set_title("Average GDP by Country")
+    axes[1].set_xlabel("Average GDP")
+    
+    # Adjust layout and display the plots
     plt.tight_layout()
     plt.show()
     plt.clf()
 
+bar_chart(df, "AverageLifeExpectancy", "Country", "AverageGDP")
+#Used to plot 1 categorical variable on y axis against two different x axis
+def distribution_plots(data,x,y,x2):
+    
+    fig, axes = plt.subplots(1,2, sharey= True, figsize = (12,6))
+    # Plot the first subplot (Left)
+    sns.violinplot(ax=axes[0], y=y, x=x, data=data, inner = None)
+    sns.swarmplot(ax=axes[0], y=y, x=x, data=df, color='k', alpha=0.7)
+    axes[0].set_title("Distribution of Life Expectancy by Country")
+    axes[0].set_xlabel("Life Expectancy")
+    
+    # Plot the second subplot (Right)
+    sns.violinplot(ax=axes[1], y=y, x=x2, data=df, inner = None)
+    sns.swarmplot(ax=axes[1], y=y, x=x2, data=df, color='k', alpha=0.7)
+    axes[1].set_title("Distribuition of GDP by Country")
+    axes[1].set_xlabel("GDP")
+    
+    # Adjust layout and display the plots
+    plt.tight_layout()
+    plt.show()
+    plt.clf()
 
-scatter_chart(df,'GDP',"Life expectancy at birth (years)",'Country')    
-
+distribution_plots(df, "Life expectancy at birth (years)", "Country", "GDP")
